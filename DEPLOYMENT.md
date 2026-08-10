@@ -293,18 +293,21 @@ stakes internal automations.
 
 ## 9. CI/CD (optional but recommended)
 
-`.github/workflows/deploy.yml` redeploys automatically on every push to
-`main`. To enable it, add these repo secrets (GitHub → Settings → Secrets and
-variables → Actions):
+Ready-made workflows live in `github-workflow-templates/` (not
+`.github/workflows/` — see that folder's `README.md` for why, and the copy
+commands to activate them). Once copied in:
 
-| Secret | Value |
-|---|---|
-| `EC2_HOST` | Elastic IP or domain |
-| `EC2_USER` | `ubuntu` |
-| `EC2_SSH_KEY` | contents of the `.pem` key from step 3.1 |
-| `EC2_APP_DIR` | `/home/ubuntu/joindevops-crm-lite` |
+- `deploy.yml` redeploys automatically on every push to `main`. Add these
+  repo secrets first (GitHub → Settings → Secrets and variables → Actions):
 
-`.github/workflows/ci.yml` runs lint/typecheck/build on every PR.
+  | Secret | Value |
+  |---|---|
+  | `EC2_HOST` | Elastic IP or domain |
+  | `EC2_USER` | `ubuntu` |
+  | `EC2_SSH_KEY` | contents of the `.pem` key from step 3.1 |
+  | `EC2_APP_DIR` | `/home/ubuntu/joindevops-crm-lite` |
+
+- `ci.yml` runs lint/typecheck/build on every PR.
 
 ---
 
