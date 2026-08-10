@@ -1,0 +1,44 @@
+# Production compose file for the single-EC2-instance deployment described in
+# DEPLOYMENT.md. Postgres lives on RDS (not here) — only the app, its
+# background worker, and Redis (for BullMQ queues) run on the instance.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && node server.js"
+
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: npx tsx src/workers/communicationWorker.ts
+
+volumes:
+  redis_data:

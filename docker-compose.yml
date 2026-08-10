@@ -1,0 +1,27 @@
+# Local development: brings up Postgres + Redis only.
+# Run the Next.js app itself on the host with `npm run dev` (and the worker
+# with `npm run worker` in a second terminal) so you get hot reload.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: crm_dev_password
+      POSTGRES_DB: crm
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:

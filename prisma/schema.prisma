@@ -1,0 +1,222 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Auth (NextAuth Prisma Adapter) ----------
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- Core CRM ----------
+
+enum Role {
+  ADMIN
+  MANAGER
+  SALES
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(SALES)
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts          Account[]
+  sessions          Session[]
+  assignedLeads     Lead[]         @relation("AssignedLeads")
+  leadActivities    LeadActivity[]
+  communicationsLog Communication[] @relation("TriggeredBy")
+
+  @@index([role, active])
+}
+
+enum LeadSourceType {
+  TALLY
+  WEBFLOW
+  META_ADS
+  PABBLY
+  ZAPIER
+  MANUAL
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL
+  WON
+  LOST
+}
+
+model Lead {
+  id         String         @id @default(cuid())
+  name       String?
+  email      String?
+  phone      String?
+  course     String?
+  message    String?
+  source     LeadSourceType @default(OTHER)
+  sourceRef  String? // e.g. Tally form id, Webflow form name, Meta ad/campaign id
+  status     LeadStatus     @default(NEW)
+  utmSource  String?
+  utmMedium  String?
+  utmCampaign String?
+  score      Int            @default(0)
+  rawPayload Json?
+
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedLeads", fields: [assignedToId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activities     LeadActivity[]
+  communications Communication[]
+
+  @@index([status])
+  @@index([source])
+  @@index([assignedToId])
+  @@index([email])
+  @@index([phone])
+}
+
+enum ActivityType {
+  NOTE
+  STATUS_CHANGE
+  ASSIGNED
+  EMAIL_SENT
+  EMAIL_FAILED
+  WHATSAPP_SENT
+  WHATSAPP_FAILED
+  WEBHOOK_FIRED
+  CREATED
+}
+
+model LeadActivity {
+  id        String       @id @default(cuid())
+  leadId    String
+  lead      Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?        @relation(fields: [userId], references: [id])
+  type      ActivityType
+  message   String
+  metadata  Json?
+  createdAt DateTime     @default(now())
+
+  @@index([leadId])
+}
+
+enum CommunicationChannel {
+  EMAIL
+  WHATSAPP
+}
+
+enum CommunicationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model Communication {
+  id                String               @id @default(cuid())
+  leadId            String
+  lead              Lead                 @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  channel           CommunicationChannel
+  templateKey       String
+  status            CommunicationStatus  @default(PENDING)
+  providerMessageId String?
+  error             String?
+  payload           Json?
+  triggeredById     String?
+  triggeredBy       User?                @relation("TriggeredBy", fields: [triggeredById], references: [id])
+  createdAt         DateTime             @default(now())
+  sentAt            DateTime?
+
+  @@index([leadId])
+  @@index([status])
+}
+
+model MessageTemplate {
+  id        String               @id @default(cuid())
+  key       String               @unique // e.g. "lead_ack_email", "lead_ack_whatsapp"
+  channel   CommunicationChannel
+  name      String
+  subject   String? // email only
+  body      String               @db.Text // supports {{name}}, {{course}}, {{source}} placeholders
+  isActive  Boolean              @default(true)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+}
+
+// Secret token used to authenticate inbound webhook calls per source,
+// e.g. https://crm.example.com/api/webhooks/leads/tally?token=xxxx
+model WebhookInboundKey {
+  id        String         @id @default(cuid())
+  source    LeadSourceType
+  token     String         @unique
+  active    Boolean        @default(true)
+  createdAt DateTime       @default(now())
+
+  @@index([source])
+}
+
+enum OutboundEvent {
+  LEAD_CREATED
+  LEAD_STATUS_CHANGED
+  LEAD_ASSIGNED
+}
+
+// Outbound webhooks fired to Pabbly Connect / Zapier catch hooks on CRM events
+model OutboundWebhook {
+  id        String        @id @default(cuid())
+  name      String
+  targetUrl String
+  event     OutboundEvent
+  secret    String // used to HMAC-sign the payload (X-CRM-Signature header)
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
