@@ -11,6 +11,10 @@ output "ec2_instance_id" {
   value = aws_instance.app.id
 }
 
+output "aws_region" {
+  value = var.aws_region
+}
+
 output "rds_endpoint" {
   description = "RDS connection host (no credentials — those live in Secrets Manager, see rds_master_secret_arn)."
   value       = aws_db_instance.main.address

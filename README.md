@@ -153,7 +153,11 @@ For the hardened production architecture — RDS with an AWS-managed/rotated mas
 secrets in SSM Parameter Store instead of a hand-edited `.env`, a twice-weekly AWS Backup plan on
 top of RDS's own daily backups, and a step-by-step "the EC2 instance died" recovery runbook — see
 **[AWS_SETUP_GUIDE.md](./AWS_SETUP_GUIDE.md)**, or provision that exact architecture in one shot
-with **[terraform/](./terraform)** (`terraform apply`).
+with **[terraform/](./terraform)**. Fastest path: `cp terraform/terraform.tfvars.example
+terraform/terraform.tfvars`, fill it in, then `make deploy` from the repo root — one command that
+provisions the infra, waits for the instance to boot, and verifies every service (Docker, nginx,
+the app itself) is actually enabled and running before it hands back control (`make help` for the
+rest of the targets: `plan`, `status`, `redeploy`, `destroy`).
 
 ## Extending
 

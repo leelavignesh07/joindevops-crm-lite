@@ -39,11 +39,26 @@ from SSM/Secrets Manager exactly as it did the first time. Nothing to copy by ha
 
 ## Usage
 
+**Easiest path — the repo root `Makefile`** drives Terraform *and* confirms the app actually
+came up (Terraform only waits for the EC2 instance to reach "running", not for Docker/nginx/the
+app inside it to finish starting):
+
+```bash
+cd terraform && cp terraform.tfvars.example terraform.tfvars && $EDITOR terraform.tfvars
+cd ..
+make deploy   # apply -> wait for SSM -> verify every service is enabled and running -> print a summary
+```
+
+See the root `Makefile`'s targets (`make help`) for `plan`, `status` (re-check without changing
+anything), `redeploy` (push app updates to the running instance), and `destroy`.
+
+**Or run Terraform directly:**
+
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars: ssh_allowed_cidr, ec2_key_pair_name, nextauth_secret,
-# google_client_id/secret, ses_from_email, wati_*, and app_domain/route53_zone_id if you have them
+# edit terraform.tfvars: ssh_allowed_cidr, nextauth_secret, google_client_id/secret,
+# ses_from_email, wati_*, and app_domain/route53_zone_id/certbot_email if you have them
 
 terraform init
 terraform plan   # review what it's about to create
@@ -53,9 +68,11 @@ terraform apply
 Prerequisites:
 - An AWS account with credentials configured (`aws configure`, or `AWS_PROFILE`/env vars) with
   permission to create VPC/EC2/RDS/IAM/SSM/SecretsManager/Backup/(SES/Route53) resources.
-- An EC2 key pair already created in the target region (EC2 console → Key Pairs → Create), for
-  `ec2_key_pair_name` — SSH access, though `terraform output ssh_command` also gives you an SSM
-  Session Manager command that needs no key pair at all.
+- `terraform`, the `aws` CLI, and `jq` on your machine (`make check` verifies all three plus your
+  AWS credentials before doing anything).
+- No EC2 key pair needed — `ec2_key_pair_name` defaults to blank, and access is via SSM Session
+  Manager (`terraform output ssh_command`, or `make verify`/`make redeploy` which use it
+  directly). Set `ec2_key_pair_name` only if you specifically want SSH too.
 
 After `apply` finishes, run `terraform output` — it prints the app URL, SSH/SSM commands, and a
 `next_steps` block (SES production access request, DNS records if needed, certbot command).
