@@ -1,25 +1,10 @@
-data "aws_ami" "ubuntu" {
-  most_recent = true
-  owners      = ["099720109477"] # Canonical
-
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-}
-
 resource "aws_instance" "app" {
-  ami                         = data.aws_ami.ubuntu.id
+  ami                         = var.ami_id
   instance_type               = var.instance_type
   subnet_id                   = aws_subnet.public.id
   vpc_security_group_ids      = [aws_security_group.ec2.id]
   iam_instance_profile        = aws_iam_instance_profile.app.name
-  key_name                    = var.ec2_key_pair_name
+  key_name                    = var.ec2_key_pair_name != "" ? var.ec2_key_pair_name : null
   associate_public_ip_address = true
 
   root_block_device {
@@ -33,16 +18,19 @@ resource "aws_instance" "app" {
   # secret — precisely so a replacement instance needs nothing copied by
   # hand. See templates/user_data.sh.tpl.
   user_data = templatefile("${path.module}/templates/user_data.sh.tpl", {
-    aws_region   = var.aws_region
-    ssm_prefix   = local.ssm_prefix
-    app_repo_url = var.app_repo_url
-    app_repo_ref = var.app_repo_ref
+    aws_region    = var.aws_region
+    ssm_prefix    = local.ssm_prefix
+    app_repo_url  = var.app_repo_url
+    app_repo_ref  = var.app_repo_ref
+    app_domain    = var.app_domain
+    certbot_email = var.certbot_email
   })
   user_data_replace_on_change = true
 
-  # Wait for RDS and every SSM parameter the boot script reads (including
-  # NEXTAUTH_URL, which is derived from the EIP below but never depends on
-  # the instance itself) to exist before the instance boots and reads them.
+  # Wait for RDS, every SSM parameter the boot script reads, and (if set) the
+  # Route 53 record for app_domain, so DNS already resolves to this
+  # instance's Elastic IP by the time the boot script tries to request a
+  # certificate for it.
   depends_on = [
     aws_db_instance.main,
     aws_ssm_parameter.db_host,
@@ -59,6 +47,7 @@ resource "aws_instance" "app" {
     aws_ssm_parameter.wati_ack_template_name,
     aws_ssm_parameter.brand_name,
     aws_ssm_parameter.aws_region,
+    aws_route53_record.app,
   ]
 
   tags = { Name = "${var.project_name}-${var.environment}-app" }

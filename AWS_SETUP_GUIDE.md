@@ -258,20 +258,27 @@ The boot script is `terraform/templates/user_data.sh.tpl` in this repo — it's 
 couple of `${...}` placeholders Terraform fills in; for a manual launch, just substitute them
 yourself:
 
+This example uses the RHEL 9 AMI this repo defaults to (`ami-0220d79f3f480ecf5` in us-east-1) and
+launches with **no key pair** — access is via SSM Session Manager only, using the
+`AmazonSSMManagedInstanceCore` policy already attached in step 4 (the boot script also
+defensively installs the SSM agent in case a custom AMI doesn't already ship it). Add
+`--key-name YOUR_KEY_PAIR_NAME` back in if you specifically want SSH too.
+
 ```bash
+AMI_ID=ami-0220d79f3f480ecf5   # "Redhat-9-DevOps-Practice", us-east-1 — swap for your own AMI/region
+APP_DOMAIN="crm.joindevops.com"   # blank string "" to skip HTTPS automation and use the Elastic IP for now
+CERTBOT_EMAIL="you@joindevops.com"   # required if APP_DOMAIN is set
+
 sed -e "s|\${aws_region}|$AWS_REGION|g" \
     -e "s|\${ssm_prefix}|$SSM_PREFIX|g" \
     -e "s|\${app_repo_url}|https://github.com/leelavignesh07/joindevops-crm-lite.git|g" \
     -e "s|\${app_repo_ref}|main|g" \
+    -e "s|\${app_domain}|$APP_DOMAIN|g" \
+    -e "s|\${certbot_email}|$CERTBOT_EMAIL|g" \
     terraform/templates/user_data.sh.tpl > /tmp/user_data.sh
-
-AMI_ID=$(aws ec2 describe-images --owners 099720109477 \
-  --filters "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*" "Name=virtualization-type,Values=hvm" \
-  --query 'sort_by(Images, &CreationDate)[-1].ImageId' --output text --region $AWS_REGION)
 
 INSTANCE_ID=$(aws ec2 run-instances \
   --image-id $AMI_ID --instance-type t3.small \
-  --key-name YOUR_EXISTING_KEY_PAIR_NAME \
   --subnet-id $PUBLIC_SUBNET_ID --security-group-ids $EC2_SG_ID \
   --iam-instance-profile Name=$PROJECT-$ENVIRONMENT-ec2-profile \
   --block-device-mappings '[{"DeviceName":"/dev/sda1","Ebs":{"VolumeSize":30,"VolumeType":"gp3","Encrypted":true}}]' \
@@ -288,8 +295,15 @@ aws ec2 associate-address --instance-id $INSTANCE_ID --allocation-id $EIP_ALLOC 
 ELASTIC_IP=$(aws ec2 describe-addresses --allocation-ids $EIP_ALLOC --query 'Addresses[0].PublicIp' --output text --region $AWS_REGION)
 echo "App will be reachable at: http://$ELASTIC_IP  (once boot finishes, ~3-5 minutes)"
 
-put NEXTAUTH_URL "http://$ELASTIC_IP" String  # update to https://your-domain once DNS/certbot are set up
+put NEXTAUTH_URL "https://$APP_DOMAIN" String  # or "http://$ELASTIC_IP" if you left APP_DOMAIN blank
 ```
+
+**No key pair, no SSM agent on the AMI = no way in at all.** If you're using a custom AMI (like a
+training/practice image) rather than an AWS-published RHEL AMI, confirm it has `amazon-ssm-agent`
+before relying solely on this — the boot script installs it defensively, but verify once via
+`aws ssm describe-instance-information --region $AWS_REGION` (the instance should appear within a
+couple of minutes of boot). If it doesn't show up, re-launch with `--key-name` added back so you
+have an SSH fallback.
 
 The boot script installs Docker, clones this repo, builds `.env` from the SSM parameters + the
 RDS-managed secret, runs `docker compose -f docker-compose.prod.yml --env-file .env up -d
@@ -373,7 +387,7 @@ Nothing on the instance was load-bearing. Relaunch one:
 # up, boots, pulls the same secrets from SSM/Secrets Manager, and connects to
 # the same RDS database with all your leads intact.
 INSTANCE_ID=$(aws ec2 run-instances --image-id $AMI_ID --instance-type t3.small \
-  --key-name YOUR_EXISTING_KEY_PAIR_NAME --subnet-id $PUBLIC_SUBNET_ID \
+  --subnet-id $PUBLIC_SUBNET_ID \
   --security-group-ids $EC2_SG_ID --iam-instance-profile Name=$PROJECT-$ENVIRONMENT-ec2-profile \
   --block-device-mappings '[{"DeviceName":"/dev/sda1","Ebs":{"VolumeSize":30,"VolumeType":"gp3","Encrypted":true}}]' \
   --user-data file:///tmp/user_data.sh \

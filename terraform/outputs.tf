@@ -35,7 +35,12 @@ output "backup_schedule" {
 }
 
 output "ssh_command" {
-  value = "ssh -i /path/to/${var.ec2_key_pair_name}.pem ubuntu@${aws_eip.app.public_ip}   # or: aws ssm start-session --target ${aws_instance.app.id} --region ${var.aws_region}"
+  description = "How to get a shell on the instance. No key pair is attached by default (ec2_key_pair_name is blank) — SSM Session Manager is the only access path unless you set one."
+  value = var.ec2_key_pair_name != "" ? (
+    "ssh -i /path/to/${var.ec2_key_pair_name}.pem ec2-user@${aws_eip.app.public_ip}   # verify the default login user for your AMI — RHEL AMIs are usually ec2-user, not ubuntu"
+    ) : (
+    "aws ssm start-session --target ${aws_instance.app.id} --region ${var.aws_region}"
+  )
 }
 
 output "ses_dns_records_needed" {
@@ -50,8 +55,10 @@ output "next_steps" {
   value = <<-EOT
     1. Request SES production access (still manual — AWS Console > SES > Account dashboard > Request production access).
     2. If app_domain was set but route53_zone_id was not, add the DNS records in ses_dns_records_needed at your DNS provider.
-    3. Once DNS resolves to app_public_ip, SSH/SSM in and run:
-       sudo certbot --nginx -d ${var.app_domain} --non-interactive --agree-tos -m you@${var.app_domain} --redirect
+    3. The boot script already attempts HTTPS automatically (waits for DNS, then runs certbot) if both app_domain and
+       certbot_email were set. If it didn't succeed (check with: aws ssm start-session --target ${aws_instance.app.id}
+       --region ${var.aws_region}, then `sudo tail -100 /var/log/cloud-init-output.log`), re-run by hand once DNS
+       resolves: sudo certbot --nginx -d ${var.app_domain} --agree-tos -m ${var.certbot_email} --redirect
     4. Sign in at ${var.app_domain != "" ? "https://${var.app_domain}" : "http://${aws_eip.app.public_ip}"} with a
        Google account on ${var.allowed_google_workspace_domain} — the first person to sign in becomes ADMIN.
   EOT

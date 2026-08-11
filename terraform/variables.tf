@@ -27,11 +27,17 @@ variable "vpc_cidr" {
 }
 
 variable "ssh_allowed_cidr" {
-  description = "CIDR allowed to SSH into the EC2 instance (port 22). Set this to YOUR_IP/32 — never leave it open to 0.0.0.0/0."
+  description = "CIDR allowed to SSH into the EC2 instance (port 22), if a key pair is attached at all. Set this to YOUR_IP/32 — never leave it open to 0.0.0.0/0 for longer than necessary."
   type        = string
 }
 
 # ---------- EC2 ----------
+
+variable "ami_id" {
+  description = "AMI to launch. Defaults to the \"Redhat-9-DevOps-Practice\" RHEL 9 AMI in us-east-1. The boot script (templates/user_data.sh.tpl) is dnf/RHEL-aware; point this at a Debian/Ubuntu AMI instead and it falls back to apt automatically."
+  type        = string
+  default     = "ami-0220d79f3f480ecf5"
+}
 
 variable "instance_type" {
   description = "EC2 instance type running the app + worker containers."
@@ -46,8 +52,9 @@ variable "ec2_root_volume_gb" {
 }
 
 variable "ec2_key_pair_name" {
-  description = "Name of an existing EC2 key pair to attach for SSH access (create one in the EC2 console first)."
+  description = "Name of an existing EC2 key pair to attach for SSH access. Leave blank (the default) to launch with no key pair at all — access is then exclusively via SSM Session Manager (already granted to the instance role in iam.tf), which the boot script also defensively (re)installs and starts in case the AMI doesn't already have it running."
   type        = string
+  default     = ""
 }
 
 variable "app_repo_url" {
@@ -174,6 +181,12 @@ variable "app_domain" {
 
 variable "route53_zone_id" {
   description = "Hosted zone ID for app_domain's parent domain (required only if app_domain is set and you want DNS + SES verification records created automatically)."
+  type        = string
+  default     = ""
+}
+
+variable "certbot_email" {
+  description = "Contact email Let's Encrypt/certbot uses for expiry and account notices. Required if app_domain is set — without it the boot script skips requesting a certificate and leaves the app on plain HTTP."
   type        = string
   default     = ""
 }

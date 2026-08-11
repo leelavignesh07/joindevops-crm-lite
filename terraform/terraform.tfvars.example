@@ -8,8 +8,15 @@ project_name = "joindevops-crm"
 # Restrict this to your own IP, e.g. "203.0.113.9/32" — find it with `curl ifconfig.me`.
 ssh_allowed_cidr = "REPLACE_WITH_YOUR_IP/32"
 
-instance_type      = "t3.small"
-ec2_key_pair_name  = "REPLACE_WITH_AN_EXISTING_EC2_KEY_PAIR_NAME"
+instance_type = "t3.small"
+# Defaults to the "Redhat-9-DevOps-Practice" RHEL 9 AMI in us-east-1 (see
+# variables.tf) — override to point at a different AMI/region.
+# ami_id = "ami-0220d79f3f480ecf5"
+
+# Leave blank (the default) for no key pair at all — access is then via SSM
+# Session Manager only (already granted to the instance role). Set this only
+# if you specifically want SSH access too.
+ec2_key_pair_name = ""
 
 app_repo_url = "https://github.com/leelavignesh07/joindevops-crm-lite.git"
 app_repo_ref = "main"
@@ -20,14 +27,14 @@ db_multi_az              = false
 db_backup_retention_days = 7
 db_deletion_protection   = true
 
-backup_schedule_cron   = "cron(0 3 ? * MON,THU *)" # twice weekly: Mon + Thu, 03:00 UTC
-backup_retention_days  = 35
+backup_schedule_cron  = "cron(0 3 ? * MON,THU *)" # twice weekly: Mon + Thu, 03:00 UTC
+backup_retention_days = 35
 
 # Generate with: openssl rand -base64 32
 nextauth_secret = "REPLACE_ME"
 
-google_client_id     = "REPLACE_ME.apps.googleusercontent.com"
-google_client_secret = "REPLACE_ME"
+google_client_id                = "REPLACE_ME.apps.googleusercontent.com"
+google_client_secret            = "REPLACE_ME"
 allowed_google_workspace_domain = "joindevops.com"
 
 ses_from_email = "admissions@joindevops.com"
@@ -38,7 +45,10 @@ wati_ack_template_name  = "lead_acknowledgement"
 
 brand_name = "JoinDevOps"
 
-# Leave both blank to reach the app via its Elastic IP for now; fill in once
-# you've picked a domain and it's on Route 53.
+# Leave app_domain/route53_zone_id blank to reach the app via its Elastic IP
+# for now. Fill in once you have a domain on Route 53 — the boot script then
+# automatically requests a Let's Encrypt certificate for it (needs
+# certbot_email too).
 app_domain      = ""
 route53_zone_id = ""
+certbot_email   = ""
