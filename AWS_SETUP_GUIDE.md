@@ -64,7 +64,7 @@ unchanged.
 Set these once and reuse them in every command below:
 
 ```bash
-export AWS_REGION=ap-south-1
+export AWS_REGION=us-east-1
 export PROJECT=joindevops-crm
 export ENVIRONMENT=prod
 export MY_IP=$(curl -s ifconfig.me)/32
@@ -441,7 +441,7 @@ and rename `-restored` to the original identifier if you want the naming to matc
 
 ---
 
-## Cost snapshot (ap-south-1, on-demand, low volume)
+## Cost snapshot (us-east-1, on-demand, low volume)
 
 | Resource | Approx. monthly cost |
 |---|---|

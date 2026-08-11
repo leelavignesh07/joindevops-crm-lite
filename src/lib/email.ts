@@ -1,6 +1,6 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 
-const sesClient = new SESClient({ region: process.env.AWS_REGION ?? "ap-south-1" });
+const sesClient = new SESClient({ region: process.env.AWS_REGION ?? "us-east-1" });
 
 export async function sendAcknowledgementEmail(opts: {
   to: string;

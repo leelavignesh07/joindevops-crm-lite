@@ -68,14 +68,16 @@ real production environment, create an S3 bucket + DynamoDB lock table once, the
 `backend "s3"` block in `versions.tf` and re-run `terraform init`:
 
 ```bash
-aws s3api create-bucket --bucket joindevops-crm-terraform-state --region ap-south-1 \
-  --create-bucket-configuration LocationConstraint=ap-south-1
+# us-east-1 is special-cased by S3: do NOT pass --create-bucket-configuration
+# there (it errors) — outside us-east-1 you do need it, e.g.
+# --create-bucket-configuration LocationConstraint=ap-south-1
+aws s3api create-bucket --bucket joindevops-crm-terraform-state --region us-east-1
 aws s3api put-bucket-versioning --bucket joindevops-crm-terraform-state \
   --versioning-configuration Status=Enabled
 aws dynamodb create-table --table-name joindevops-crm-terraform-locks \
   --attribute-definitions AttributeName=LockID,AttributeType=S \
   --key-schema AttributeName=LockID,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST --region ap-south-1
+  --billing-mode PAY_PER_REQUEST --region us-east-1
 ```
 
 ### Destroying

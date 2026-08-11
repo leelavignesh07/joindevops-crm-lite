@@ -1,7 +1,7 @@
 # Copy to terraform.tfvars and fill in. Never commit the real terraform.tfvars
 # (it's gitignored) — it will contain secrets in plaintext on your machine.
 
-aws_region   = "ap-south-1"
+aws_region   = "us-east-1"
 environment  = "prod"
 project_name = "joindevops-crm"
 

@@ -52,7 +52,7 @@ Rough monthly cost at low volume: EC2 `t3.small` (~$15), RDS `db.t3.micro`
 
 Your `DATABASE_URL` will look like:
 ```
-postgresql://crm_admin:YOUR_PASSWORD@joindevops-crm.xxxxxxxxxx.ap-south-1.rds.amazonaws.com:5432/postgres?schema=public
+postgresql://crm_admin:YOUR_PASSWORD@joindevops-crm.xxxxxxxxxx.us-east-1.rds.amazonaws.com:5432/postgres?schema=public
 ```
 
 ---
@@ -163,7 +163,7 @@ nano .env   # fill in every value — see checklist below
 | `NEXTAUTH_URL` | `https://crm.yourdomain.com` (or `http://<elastic-ip>` before you have a domain/HTTPS) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | from step 5 below |
 | `ALLOWED_GOOGLE_WORKSPACE_DOMAIN` | `joindevops.com` |
-| `AWS_REGION` | e.g. `ap-south-1` |
+| `AWS_REGION` | e.g. `us-east-1` |
 | `SES_FROM_EMAIL` | e.g. `admissions@joindevops.com` |
 | `WATI_API_ENDPOINT` / `WATI_API_KEY` / `WATI_ACK_TEMPLATE_NAME` | from step 6 below |
 
