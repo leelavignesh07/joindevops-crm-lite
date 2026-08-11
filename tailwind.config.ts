@@ -4,19 +4,32 @@ const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
+      fontFamily: {
+        poppins: ["var(--font-poppins)", "sans-serif"],
+      },
       colors: {
+        // JoinDevOps brand palette (see brandbook: Colors page)
         brand: {
-          50: "#eef2ff",
-          100: "#e0e7ff",
-          200: "#c7d2fe",
-          300: "#a5b4fc",
-          400: "#818cf8",
-          500: "#6366f1",
-          600: "#4f46e5",
-          700: "#4338ca",
-          800: "#3730a3",
-          900: "#312e81",
+          50: "#f1eeff",
+          100: "#e4deff",
+          200: "#c9bdff",
+          300: "#a68dff",
+          400: "#8a68ff",
+          500: "#7249ff",
+          600: "#6136ff", // primary — exact brandbook purple
+          700: "#4f27e0",
+          800: "#3f1fb3",
+          900: "#331c8a",
         },
+        ink: {
+          50: "#f4f5f7",
+          100: "#e5e7eb",
+          400: "#4b5265",
+          600: "#232838",
+          900: "#080e1c", // exact brandbook navy/ink
+        },
+        sky: "#3198ff", // brandbook secondary blue
+        aqua: "#46ddea", // brandbook accent cyan
       },
     },
   },

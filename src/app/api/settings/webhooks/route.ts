@@ -14,7 +14,7 @@ export async function GET() {
 const createSchema = z.object({
   name: z.string().min(1),
   targetUrl: z.string().url(),
-  event: z.enum(["LEAD_CREATED", "LEAD_STATUS_CHANGED", "LEAD_ASSIGNED"]),
+  event: z.enum(["LEAD_CREATED", "LEAD_STATUS_CHANGED", "LEAD_ASSIGNED", "ENROLLMENT_CREATED"]),
 });
 
 export async function POST(req: NextRequest) {

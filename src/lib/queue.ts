@@ -1,4 +1,5 @@
 import { Queue } from "bullmq";
+import type { OutboundEvent } from "@prisma/client";
 import { redisConnection } from "@/lib/redis";
 
 export const COMMUNICATION_QUEUE = "communications";
@@ -13,7 +14,7 @@ export type CommunicationJob = {
 
 export type OutboundWebhookJob = {
   outboundWebhookId: string;
-  event: "LEAD_CREATED" | "LEAD_STATUS_CHANGED" | "LEAD_ASSIGNED";
+  event: OutboundEvent;
   leadId: string;
 };
 

@@ -14,6 +14,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       assignedTo: { select: { id: true, name: true, email: true } },
       activities: { orderBy: { createdAt: "desc" }, include: { user: { select: { name: true, email: true } } } },
       communications: { orderBy: { createdAt: "desc" } },
+      enrollments: { orderBy: { enrolledAt: "desc" } },
+      registrations: { orderBy: { sequence: "desc" } },
+      identifiers: true,
     },
   });
 
@@ -26,10 +29,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 const updateLeadSchema = z.object({
-  status: z.enum(["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "WON", "LOST"]).optional(),
+  status: z
+    .enum(["NEW", "CONTACTED", "DEMO_SCHEDULED", "DEMO_ATTENDED", "FOLLOW_UP", "CONVERTED", "NOT_CONVERTED"])
+    .optional(),
+  probability: z.enum(["HOT", "WARM", "COLD"]).optional(),
   assignedToId: z.string().optional(),
   name: z.string().optional(),
-  course: z.string().optional(),
+  interestedCourse: z.string().optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -60,6 +66,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       userId: user.id,
       type: "STATUS_CHANGE" as const,
       message: `Status changed from ${existing.status} to ${parsed.data.status}`,
+    });
+  }
+  if (parsed.data.probability && parsed.data.probability !== existing.probability) {
+    activities.push({
+      leadId: lead.id,
+      userId: user.id,
+      type: "PROBABILITY_CHANGE" as const,
+      message: `Probability changed from ${existing.probability} to ${parsed.data.probability}`,
     });
   }
   if (parsed.data.assignedToId && parsed.data.assignedToId !== existing.assignedToId) {

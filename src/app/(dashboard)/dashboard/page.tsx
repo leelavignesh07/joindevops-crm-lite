@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/rbac";
 import type { Prisma } from "@prisma/client";
@@ -5,26 +6,34 @@ import type { Prisma } from "@prisma/client";
 const STATUS_LABELS: Record<string, string> = {
   NEW: "New",
   CONTACTED: "Contacted",
-  QUALIFIED: "Qualified",
-  PROPOSAL: "Proposal",
-  WON: "Won",
-  LOST: "Lost",
+  DEMO_SCHEDULED: "Demo Scheduled",
+  DEMO_ATTENDED: "Demo Attended",
+  FOLLOW_UP: "Follow Up",
+  CONVERTED: "Converted",
+  NOT_CONVERTED: "Not Converted",
 };
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   const scopeWhere: Prisma.LeadWhereInput = user?.role === "SALES" ? { assignedToId: user.id } : {};
 
-  const [byStatus, bySource, totalLeads, last7Days] = await Promise.all([
-    prisma.lead.groupBy({ by: ["status"], where: scopeWhere, _count: true }),
-    prisma.lead.groupBy({ by: ["source"], where: scopeWhere, _count: true }),
-    prisma.lead.count({ where: scopeWhere }),
-    prisma.lead.count({
-      where: { ...scopeWhere, createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
-    }),
-  ]);
+  const [byStatus, byProbability, bySource, totalLeads, last7Days, existingCustomers, upsellOpportunities] =
+    await Promise.all([
+      prisma.lead.groupBy({ by: ["status"], where: scopeWhere, _count: true }),
+      prisma.lead.groupBy({ by: ["probability"], where: scopeWhere, _count: true }),
+      prisma.lead.groupBy({ by: ["source"], where: scopeWhere, _count: true }),
+      prisma.lead.count({ where: scopeWhere }),
+      prisma.lead.count({
+        where: { ...scopeWhere, createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+      }),
+      prisma.lead.count({ where: { ...scopeWhere, convertedAt: { not: null } } }),
+      prisma.lead.count({ where: { ...scopeWhere, upsellFlaggedAt: { not: null } } }),
+    ]);
 
   const statusMap = Object.fromEntries(byStatus.map((s) => [s.status, s._count]));
+  const probabilityMap = Object.fromEntries(byProbability.map((p) => [p.probability, p._count]));
+  const converted = statusMap.CONVERTED ?? 0;
+  const notConverted = statusMap.NOT_CONVERTED ?? 0;
 
   return (
     <div>
@@ -43,15 +52,29 @@ export default async function DashboardPage() {
           <p className="mt-1 text-3xl font-bold text-slate-900">{last7Days}</p>
         </div>
         <div className="card">
-          <p className="text-xs font-medium uppercase text-slate-500">Won</p>
-          <p className="mt-1 text-3xl font-bold text-emerald-600">{statusMap.WON ?? 0}</p>
+          <p className="text-xs font-medium uppercase text-slate-500">Hot Leads</p>
+          <p className="mt-1 text-3xl font-bold text-red-600">{probabilityMap.HOT ?? 0}</p>
         </div>
         <div className="card">
           <p className="text-xs font-medium uppercase text-slate-500">Open</p>
-          <p className="mt-1 text-3xl font-bold text-brand-600">
-            {totalLeads - (statusMap.WON ?? 0) - (statusMap.LOST ?? 0)}
-          </p>
+          <p className="mt-1 text-3xl font-bold text-brand-600">{totalLeads - converted - notConverted}</p>
         </div>
+        <div className="card">
+          <p className="text-xs font-medium uppercase text-slate-500">Converted</p>
+          <p className="mt-1 text-3xl font-bold text-emerald-600">{converted}</p>
+        </div>
+        <div className="card">
+          <p className="text-xs font-medium uppercase text-slate-500">Not Converted</p>
+          <p className="mt-1 text-3xl font-bold text-red-600">{notConverted}</p>
+        </div>
+        <Link href="/leads?view=customers" className="card transition-colors hover:bg-slate-50">
+          <p className="text-xs font-medium uppercase text-slate-500">Existing Customers</p>
+          <p className="mt-1 text-3xl font-bold text-slate-900">{existingCustomers}</p>
+        </Link>
+        <Link href="/leads?view=upsell" className="card transition-colors hover:bg-slate-50">
+          <p className="text-xs font-medium uppercase text-slate-500">Upsell Opportunities</p>
+          <p className="mt-1 text-3xl font-bold text-aqua">{upsellOpportunities}</p>
+        </Link>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">

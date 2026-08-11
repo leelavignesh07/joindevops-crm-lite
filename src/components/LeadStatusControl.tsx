@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
-const STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "WON", "LOST"];
+const STATUSES = ["NEW", "CONTACTED", "DEMO_SCHEDULED", "DEMO_ATTENDED", "FOLLOW_UP", "CONVERTED", "NOT_CONVERTED"];
 
 export default function LeadStatusControl({ leadId, currentStatus }: { leadId: string; currentStatus: string }) {
   const [status, setStatus] = useState(currentStatus);
@@ -39,7 +39,7 @@ export default function LeadStatusControl({ leadId, currentStatus }: { leadId: s
     >
       {STATUSES.map((s) => (
         <option key={s} value={s}>
-          {s}
+          {s.replace(/_/g, " ")}
         </option>
       ))}
     </select>

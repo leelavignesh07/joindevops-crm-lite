@@ -11,9 +11,21 @@ export async function GET() {
   return NextResponse.json({ keys });
 }
 
-const createSchema = z.object({
-  source: z.enum(["TALLY", "WEBFLOW", "PABBLY", "ZAPIER"]),
-});
+const LEAD_SOURCES = ["TALLY", "WEBFLOW", "PABBLY", "ZAPIER", "LEARNYST"] as const;
+const ENROLLMENT_SOURCES = ["LEARNYST", "PABBLY", "ZAPIER"] as const;
+
+const createSchema = z
+  .object({
+    purpose: z.enum(["LEAD", "ENROLLMENT"]).default("LEAD"),
+    source: z.enum(["TALLY", "WEBFLOW", "PABBLY", "ZAPIER", "LEARNYST"]),
+  })
+  .refine(
+    (data) =>
+      data.purpose === "LEAD"
+        ? (LEAD_SOURCES as readonly string[]).includes(data.source)
+        : (ENROLLMENT_SOURCES as readonly string[]).includes(data.source),
+    { message: "Source is not valid for the selected purpose" }
+  );
 
 export async function POST(req: NextRequest) {
   const user = await requireRole(ADMIN_ONLY);
@@ -23,7 +35,11 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const key = await prisma.webhookInboundKey.create({
-    data: { source: parsed.data.source, token: crypto.randomBytes(20).toString("hex") },
+    data: {
+      purpose: parsed.data.purpose,
+      source: parsed.data.source,
+      token: crypto.randomBytes(20).toString("hex"),
+    },
   });
 
   return NextResponse.json({ key }, { status: 201 });

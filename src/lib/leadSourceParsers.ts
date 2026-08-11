@@ -7,6 +7,7 @@ export const SOURCE_SLUGS: Record<string, LeadSourceType> = {
   webflow: "WEBFLOW",
   pabbly: "PABBLY", // generic relay, also used for Meta Ads leads forwarded via Pabbly Connect
   zapier: "ZAPIER", // generic relay, also used for Meta Ads leads forwarded via Zapier
+  learnyst: "LEARNYST", // free-session/demo registrations captured directly on Learnyst
 };
 
 type JsonObject = Record<string, unknown>;
@@ -40,6 +41,9 @@ function parseTally(body: JsonObject): NormalizedLeadInput {
     message: find("message", "comment", "query"),
     source: "TALLY",
     sourceRef: asString(data.formName) ?? asString(body.formId),
+    // Tally doesn't forward the respondent's IP by default; only populated if
+    // you add a hidden field (label containing "ip") mapped to the visitor's IP.
+    ipAddress: find("ip address", "ip"),
     rawPayload: body,
   };
 }
@@ -64,15 +68,18 @@ function parseWebflow(body: JsonObject): NormalizedLeadInput {
     message: get("message", "comment", "query"),
     source: "WEBFLOW",
     sourceRef: asString(body.name) ?? asString(body.formId),
+    // Only populated if the form has a hidden field capturing the visitor's IP.
+    ipAddress: get("ipaddress", "ip"),
     rawPayload: body,
   };
 }
 
 /**
  * Generic flat-JSON payload used for the Pabbly Connect / Zapier relay —
- * this is also how Meta (Facebook/Instagram) Lead Ads leads reach the CRM,
- * since Pabbly/Zapier pulls them from Meta and forwards a flat JSON body here.
- * Accepts common field name variants so simple Zap/Pabbly mappings just work.
+ * this is also how Meta (Facebook/Instagram) Lead Ads leads and Learnyst
+ * free-session/demo registrations reach the CRM, since Pabbly/Zapier pulls
+ * them from the source and forwards a flat JSON body here. Accepts common
+ * field name variants so simple Zap/Pabbly mappings just work.
  */
 function parseGeneric(body: JsonObject, source: LeadSourceType): NormalizedLeadInput {
   const pick = (...keys: string[]) => {
@@ -87,10 +94,14 @@ function parseGeneric(body: JsonObject, source: LeadSourceType): NormalizedLeadI
     name: pick("name", "full_name", "fullName"),
     email: pick("email", "email_address"),
     phone: pick("phone", "phone_number", "whatsapp", "mobile"),
-    course: pick("course", "program", "interested_in"),
+    course: pick("course", "course_name", "program", "interested_in"),
     message: pick("message", "comment", "query", "notes"),
     source,
     sourceRef: pick("ad_id", "adgroup_id", "campaign_name", "form_id", "source_ref"),
+    // Only populated if the relay (Pabbly/Zapier step, or the source form
+    // itself) explicitly forwards the visitor's IP — most lead-ad platforms
+    // don't include it, so treat this as best-effort.
+    ipAddress: pick("ip", "ip_address", "client_ip", "visitor_ip"),
     utmSource: pick("utm_source"),
     utmMedium: pick("utm_medium"),
     utmCampaign: pick("utm_campaign", "campaign_name"),

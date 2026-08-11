@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/rbac";
 import SignOutButton from "@/components/SignOutButton";
+import Logo from "@/components/Logo";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -19,8 +20,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <aside className="flex w-64 flex-col justify-between border-r border-slate-200 bg-white p-4">
         <div>
           <div className="mb-6 px-2">
-            <h1 className="text-lg font-bold text-brand-700">JoinDevOps CRM</h1>
-            <p className="text-xs text-slate-500">{user.name ?? user.email}</p>
+            <Logo />
+            <p className="mt-2 text-xs text-slate-500">{user.name ?? user.email}</p>
             <span className="badge mt-1 bg-brand-50 text-brand-700">{user.role}</span>
           </div>
           <nav className="space-y-1">

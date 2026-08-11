@@ -7,10 +7,14 @@ import { ingestLead } from "@/lib/leadIngest";
  * Inbound lead capture endpoint, shared by all sources:
  *   POST /api/webhooks/leads/tally?token=xxxx
  *   POST /api/webhooks/leads/webflow?token=xxxx
- *   POST /api/webhooks/leads/pabbly?token=xxxx   (Pabbly Connect relay, incl. Meta Ads)
- *   POST /api/webhooks/leads/zapier?token=xxxx   (Zapier relay, incl. Meta Ads)
+ *   POST /api/webhooks/leads/pabbly?token=xxxx     (Pabbly Connect relay, incl. Meta Ads)
+ *   POST /api/webhooks/leads/zapier?token=xxxx     (Zapier relay, incl. Meta Ads)
+ *   POST /api/webhooks/leads/learnyst?token=xxxx   (free-session/demo registrations on Learnyst)
  *
- * Token is per-source and managed under Settings > Inbound Webhooks.
+ * Token is per-source and managed under Settings > Inbound Webhooks. For
+ * Learnyst *course purchases* (paid enrollments), see
+ * /api/webhooks/enrollments/[source] instead — this endpoint is only for
+ * capturing a new lead/registration.
  */
 export async function POST(req: NextRequest, { params }: { params: { source: string } }) {
   const slug = params.source.toLowerCase();
@@ -20,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: { source: str
   }
 
   const token = req.nextUrl.searchParams.get("token");
-  const authorized = await verifyInboundToken(source, token);
+  const authorized = await verifyInboundToken("LEAD", source, token);
   if (!authorized) {
     return NextResponse.json({ error: "Invalid or missing token" }, { status: 401 });
   }

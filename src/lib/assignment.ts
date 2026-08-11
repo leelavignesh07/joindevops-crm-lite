@@ -2,8 +2,8 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * Least-loaded round robin: assigns the new lead to the active SALES employee
- * with the fewest currently-open leads (status not WON/LOST). Ties broken by
- * whoever was assigned longest ago.
+ * with the fewest currently-open leads (status not CONVERTED/NOT_CONVERTED).
+ * Ties broken by whoever was assigned longest ago.
  */
 export async function pickNextAssignee(): Promise<string | null> {
   const salesReps = await prisma.user.findMany({
@@ -11,7 +11,7 @@ export async function pickNextAssignee(): Promise<string | null> {
     select: {
       id: true,
       assignedLeads: {
-        where: { status: { notIn: ["WON", "LOST"] } },
+        where: { status: { notIn: ["CONVERTED", "NOT_CONVERTED"] } },
         select: { id: true, createdAt: true },
       },
     },

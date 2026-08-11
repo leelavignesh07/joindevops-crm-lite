@@ -3,12 +3,24 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import type { LeadSourceType, WebhookInboundKey } from "@prisma/client";
+import type { LeadSourceType, WebhookInboundKey, WebhookPurpose } from "@prisma/client";
 
-const SOURCES: LeadSourceType[] = ["TALLY", "WEBFLOW", "PABBLY", "ZAPIER"];
-const SLUG_BY_SOURCE: Record<string, string> = { TALLY: "tally", WEBFLOW: "webflow", PABBLY: "pabbly", ZAPIER: "zapier" };
+const LEAD_SOURCES: LeadSourceType[] = ["TALLY", "WEBFLOW", "PABBLY", "ZAPIER", "LEARNYST"];
+const ENROLLMENT_SOURCES: LeadSourceType[] = ["LEARNYST", "PABBLY", "ZAPIER"];
+const SLUG_BY_SOURCE: Record<string, string> = {
+  TALLY: "tally",
+  WEBFLOW: "webflow",
+  PABBLY: "pabbly",
+  ZAPIER: "zapier",
+  LEARNYST: "learnyst",
+};
+const BASE_PATH: Record<WebhookPurpose, string> = {
+  LEAD: "/api/webhooks/leads",
+  ENROLLMENT: "/api/webhooks/enrollments",
+};
 
 export default function InboundKeysPanel({ keys }: { keys: WebhookInboundKey[] }) {
+  const [purpose, setPurpose] = useState<WebhookPurpose>("LEAD");
   const [source, setSource] = useState<LeadSourceType>("TALLY");
   const [loading, setLoading] = useState(false);
   const [origin, setOrigin] = useState("");
@@ -18,13 +30,21 @@ export default function InboundKeysPanel({ keys }: { keys: WebhookInboundKey[] }
     setOrigin(window.location.origin);
   }, []);
 
+  const sourceOptions = purpose === "LEAD" ? LEAD_SOURCES : ENROLLMENT_SOURCES;
+
+  function onPurposeChange(next: WebhookPurpose) {
+    setPurpose(next);
+    const options = next === "LEAD" ? LEAD_SOURCES : ENROLLMENT_SOURCES;
+    if (!options.includes(source)) setSource(options[0]!);
+  }
+
   async function createKey() {
     setLoading(true);
     try {
       const res = await fetch("/api/settings/inbound-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source }),
+        body: JSON.stringify({ purpose, source }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Failed to create key");
       toast.success("Webhook URL created");
@@ -55,15 +75,21 @@ export default function InboundKeysPanel({ keys }: { keys: WebhookInboundKey[] }
 
   return (
     <section className="card">
-      <h2 className="text-sm font-semibold text-slate-700">Inbound Lead Webhooks</h2>
+      <h2 className="text-sm font-semibold text-slate-700">Inbound Webhooks</h2>
       <p className="mt-1 text-xs text-slate-500">
-        Give each lead source (Tally form, Webflow site, or a Pabbly/Zapier scenario that also relays Meta Ads
-        leads) its own secret URL below and paste it into that tool&apos;s webhook/HTTP action config.
+        <strong>Lead</strong> webhooks capture a new demo/free-session registration (Tally, Webflow, Learnyst, or a
+        Pabbly/Zapier scenario that also relays Meta Ads leads). <strong>Enrollment</strong> webhooks record a paid
+        Learnyst course purchase, converting the matching lead. Give each source its own secret URL below and paste
+        it into that tool&apos;s webhook/HTTP action config.
       </p>
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
+        <select className="input max-w-[10rem]" value={purpose} onChange={(e) => onPurposeChange(e.target.value as WebhookPurpose)}>
+          <option value="LEAD">Lead</option>
+          <option value="ENROLLMENT">Enrollment</option>
+        </select>
         <select className="input max-w-[10rem]" value={source} onChange={(e) => setSource(e.target.value as LeadSourceType)}>
-          {SOURCES.map((s) => (
+          {sourceOptions.map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
@@ -76,11 +102,14 @@ export default function InboundKeysPanel({ keys }: { keys: WebhookInboundKey[] }
 
       <ul className="mt-4 space-y-2">
         {keys.map((k) => {
-          const url = `${origin}/api/webhooks/leads/${SLUG_BY_SOURCE[k.source]}?token=${k.token}`;
+          const url = `${origin}${BASE_PATH[k.purpose]}/${SLUG_BY_SOURCE[k.source]}?token=${k.token}`;
           return (
             <li key={k.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 p-3">
               <div className="min-w-0">
-                <p className="text-xs font-medium text-slate-500">{k.source}{!k.active && " (revoked)"}</p>
+                <p className="text-xs font-medium text-slate-500">
+                  {k.purpose} · {k.source}
+                  {!k.active && " (revoked)"}
+                </p>
                 <p className="truncate font-mono text-xs text-slate-700">{url}</p>
               </div>
               <div className="flex shrink-0 gap-2">

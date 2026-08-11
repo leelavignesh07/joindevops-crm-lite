@@ -65,7 +65,7 @@ model User {
 
   accounts          Account[]
   sessions          Session[]
-  assignedLeads     Lead[]         @relation("AssignedLeads")
+  assignedLeads     Lead[]          @relation("AssignedLeads")
   leadActivities    LeadActivity[]
   communicationsLog Communication[] @relation("TriggeredBy")
 
@@ -78,34 +78,60 @@ enum LeadSourceType {
   META_ADS
   PABBLY
   ZAPIER
+  LEARNYST
   MANUAL
   OTHER
 }
 
+// Reflects the demo/free-session -> paid-course funnel this CRM exists to run:
+// a lead registers for a demo or free session, sales follows up, and every
+// lead must eventually be evaluated as CONVERTED (enrolled) or NOT_CONVERTED.
 enum LeadStatus {
   NEW
   CONTACTED
-  QUALIFIED
-  PROPOSAL
-  WON
-  LOST
+  DEMO_SCHEDULED
+  DEMO_ATTENDED
+  FOLLOW_UP
+  CONVERTED
+  NOT_CONVERTED
 }
 
+// How hot/cold a lead is judged to be — set by sales, driven by follow-up calls.
+enum LeadProbability {
+  HOT
+  WARM
+  COLD
+}
+
+// A Lead is the single deduplicated record for one real person. Every inbound
+// registration (demo signup, free session, Learnyst lead capture, ...) is
+// matched against existing Leads before a new one is created — see
+// src/lib/dedupe.ts — so the same person never produces two Lead rows even if
+// they used a different email/phone/IP or came in through a different source.
 model Lead {
-  id         String         @id @default(cuid())
-  name       String?
-  email      String?
-  phone      String?
-  course     String?
-  message    String?
-  source     LeadSourceType @default(OTHER)
-  sourceRef  String? // e.g. Tally form id, Webflow form name, Meta ad/campaign id
-  status     LeadStatus     @default(NEW)
-  utmSource  String?
-  utmMedium  String?
-  utmCampaign String?
-  score      Int            @default(0)
-  rawPayload Json?
+  id               String          @id @default(cuid())
+  name             String?
+  email            String?
+  phone            String?
+  interestedCourse String? // the course/demo/free-session this lead most recently showed interest in
+  message          String?
+  source           LeadSourceType  @default(OTHER) // first-touch source
+  sourceRef        String? // e.g. Tally form id, Webflow form name, Meta ad/campaign id
+  status           LeadStatus      @default(NEW)
+  probability      LeadProbability @default(WARM)
+  utmSource        String?
+  utmMedium        String?
+  utmCampaign      String?
+  score            Int             @default(0)
+  rawPayload       Json?
+
+  // Set the moment the first Enrollment is recorded (Learnyst course purchase).
+  // Null == not yet converted. Non-null == an existing customer (upsell target).
+  convertedAt     DateTime?
+  // Set whenever a NEW registration/interest comes in for a lead that's
+  // already convertedAt — i.e. an existing customer showing renewed interest,
+  // which is exactly what "for upselling" needs to surface.
+  upsellFlaggedAt DateTime?
 
   assignedToId String?
   assignedTo   User?   @relation("AssignedLeads", fields: [assignedToId], references: [id])
@@ -115,17 +141,90 @@ model Lead {
 
   activities     LeadActivity[]
   communications Communication[]
+  registrations  LeadRegistration[]
+  enrollments    Enrollment[]
+  identifiers    ContactIdentifier[]
 
   @@index([status])
   @@index([source])
+  @@index([probability])
   @@index([assignedToId])
   @@index([email])
   @@index([phone])
+  @@index([convertedAt])
+  @@index([upsellFlaggedAt])
+}
+
+// One row per inbound touchpoint (a demo signup, a free-session registration,
+// a repeat visit from a different source, ...) for a Lead. Kept even after
+// dedup-matching to an existing Lead, so the full chronological history of
+// how a person engaged is preserved. `sequence` is a DB-generated, gapless
+// monotonic counter — the authoritative "registration order" independent of
+// createdAt clock precision.
+model LeadRegistration {
+  id          String         @id @default(cuid())
+  leadId      String
+  lead        Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  sequence    Int            @default(autoincrement())
+  source      LeadSourceType
+  sourceRef   String?
+  course      String? // the specific demo/free-session/course this particular registration was for
+  ipAddress   String? // only populated when the upstream form forwards it — see dedupe.ts
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  rawPayload  Json?
+  createdAt   DateTime       @default(now())
+
+  @@index([leadId])
+  @@index([sequence])
+}
+
+// A paid Learnyst course enrollment. Multiple rows per Lead represent repeat
+// purchases (upsells). The first Enrollment for a Lead sets Lead.convertedAt.
+model Enrollment {
+  id         String         @id @default(cuid())
+  leadId     String
+  lead       Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  courseName String
+  courseRef  String? // Learnyst course/product id
+  amount     Int? // in whole INR
+  source     LeadSourceType @default(LEARNYST)
+  rawPayload Json?
+  enrolledAt DateTime       @default(now())
+
+  @@index([leadId])
+}
+
+enum IdentifierType {
+  EMAIL
+  PHONE
+  IP
+}
+
+// Every email/phone/IP ever seen for a Lead, used to match new inbound
+// registrations back to an existing person instead of creating a duplicate.
+// Deliberately has no DB-level unique constraint on (type, normalizedValue):
+// EMAIL/PHONE are treated as strong identity keys in application code
+// (src/lib/dedupe.ts), but IP is a weak signal shared by many people (offices,
+// colleges, shared wifi) and must never hard-block two different Leads.
+model ContactIdentifier {
+  id              String         @id @default(cuid())
+  leadId          String
+  lead            Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type            IdentifierType
+  value           String
+  normalizedValue String
+  createdAt       DateTime       @default(now())
+
+  @@index([type, normalizedValue])
+  @@index([leadId])
 }
 
 enum ActivityType {
   NOTE
   STATUS_CHANGE
+  PROBABILITY_CHANGE
   ASSIGNED
   EMAIL_SENT
   EMAIL_FAILED
@@ -133,6 +232,9 @@ enum ActivityType {
   WHATSAPP_FAILED
   WEBHOOK_FIRED
   CREATED
+  RE_REGISTERED // matched an existing lead on a new inbound registration (dedup)
+  ENROLLED // Learnyst course enrollment recorded
+  UPSELL_FLAGGED // existing customer showed renewed interest
 }
 
 model LeadActivity {
@@ -191,22 +293,30 @@ model MessageTemplate {
   updatedAt DateTime             @updatedAt
 }
 
-// Secret token used to authenticate inbound webhook calls per source,
+enum WebhookPurpose {
+  LEAD // new demo/free-session registration -> creates or matches a Lead
+  ENROLLMENT // Learnyst course purchase -> creates an Enrollment, marks the Lead converted
+}
+
+// Secret token used to authenticate inbound webhook calls per source/purpose,
 // e.g. https://crm.example.com/api/webhooks/leads/tally?token=xxxx
+//      https://crm.example.com/api/webhooks/enrollments/learnyst?token=xxxx
 model WebhookInboundKey {
   id        String         @id @default(cuid())
+  purpose   WebhookPurpose @default(LEAD)
   source    LeadSourceType
   token     String         @unique
   active    Boolean        @default(true)
   createdAt DateTime       @default(now())
 
-  @@index([source])
+  @@index([purpose, source])
 }
 
 enum OutboundEvent {
   LEAD_CREATED
   LEAD_STATUS_CHANGED
   LEAD_ASSIGNED
+  ENROLLMENT_CREATED
 }
 
 // Outbound webhooks fired to Pabbly Connect / Zapier catch hooks on CRM events

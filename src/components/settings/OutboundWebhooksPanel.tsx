@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import type { OutboundEvent, OutboundWebhook } from "@prisma/client";
 
-const EVENTS: OutboundEvent[] = ["LEAD_CREATED", "LEAD_STATUS_CHANGED", "LEAD_ASSIGNED"];
+const EVENTS: OutboundEvent[] = ["LEAD_CREATED", "LEAD_STATUS_CHANGED", "LEAD_ASSIGNED", "ENROLLMENT_CREATED"];
 
 export default function OutboundWebhooksPanel({ webhooks }: { webhooks: OutboundWebhook[] }) {
   const [name, setName] = useState("");

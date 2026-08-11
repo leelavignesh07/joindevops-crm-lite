@@ -253,6 +253,14 @@ pick source → Generate URL → Copy**. Tokens are per-source and revocable.
 2. Paste the CRM's `webflow` URL. Field names in your form should contain
    "name", "email", "phone", "course"/"program"/"interest", "message".
 
+### Learnyst — free-session/demo registrations
+
+If a demo/free session is itself hosted or listed on Learnyst (rather than
+Tally/Webflow), point Learnyst's registration webhook (or a Pabbly/Zapier
+scenario watching Learnyst) at the CRM's `learnyst` **Lead** URL, generated
+the same way. Field names should contain "name", "email",
+"phone"/"mobile"/"whatsapp", "course"/"program"/"course_name", "message".
+
 ### Meta Ads (Facebook/Instagram Lead Ads) — via Pabbly Connect or Zapier
 
 A direct Meta Graph API integration needs Facebook App Review + Business
@@ -279,19 +287,53 @@ generic flat-JSON endpoints, not Meta-specific.
 
 ---
 
-## 8. Outbound webhooks (CRM → Pabbly/Zapier)
+## 8. Learnyst course enrollments (conversion tracking)
 
-**Settings → Outbound Webhooks** lets you fire a signed POST to any Pabbly
-Connect/Zapier "Catch Hook" URL on `LEAD_CREATED`, `LEAD_ASSIGNED`, or
-`LEAD_STATUS_CHANGED` — useful for things like a Slack ping when a lead is
-marked Won, or logging every lead to a Google Sheet. Each webhook gets its own
-HMAC-SHA256 signing secret; the receiver can verify the `X-CRM-Signature`
-header if you add a Code step, or just trust the URL's obscurity for lower-
-stakes internal automations.
+This is what makes the CRM able to answer "did this lead convert?" — a paid
+Learnyst course purchase POSTs to a separate **Enrollment** URL, which records
+the sale, matches it to the lead's existing record (same dedup logic as
+leads), and marks that lead **Converted**:
+
+```
+https://crm.yourdomain.com/api/webhooks/enrollments/<source>?token=<secret>
+```
+
+Generate it the same way as a lead webhook, but pick **Enrollment** as the
+purpose in **Settings → Inbound Webhooks**.
+
+1. Check whether your Learnyst plan has native webhooks (Learnyst → Settings
+   → Integrations/Webhooks) for "order completed"/"course purchased" events.
+   If so, point it directly at the `learnyst` Enrollment URL.
+2. If not, relay it: **Pabbly Connect** or **Zapier** → Trigger on a Learnyst
+   order-completed event (Learnyst is available as an app on both, or use
+   Learnyst's order-confirmation email/Google Sheet export as a trigger
+   source) → Action **Webhook/Webhooks by Zapier → POST** to the CRM's
+   `pabbly`/`zapier` Enrollment URL.
+3. Map fields to a flat JSON body: `email` (or `phone`), `course_name`,
+   `course_id` (optional), `amount` (optional, in INR) — see
+   `parseEnrollmentPayload` in `src/lib/enrollmentSourceParsers.ts` for the
+   full list of accepted field-name variants (`courseName`, `product_name`,
+   `amount_paid`, `order_amount`, etc.).
+
+A second enrollment for the same person, or a new demo/free-session
+registration from someone who already converted, is automatically flagged as
+an **upsell opportunity** on the Leads page — no extra setup needed.
 
 ---
 
-## 9. CI/CD (optional but recommended)
+## 9. Outbound webhooks (CRM → Pabbly/Zapier)
+
+**Settings → Outbound Webhooks** lets you fire a signed POST to any Pabbly
+Connect/Zapier "Catch Hook" URL on `LEAD_CREATED`, `LEAD_ASSIGNED`,
+`LEAD_STATUS_CHANGED`, or `ENROLLMENT_CREATED` — useful for things like a
+Slack ping when a lead converts, or logging every enrollment to a Google
+Sheet. Each webhook gets its own HMAC-SHA256 signing secret; the receiver can
+verify the `X-CRM-Signature` header if you add a Code step, or just trust the
+URL's obscurity for lower-stakes internal automations.
+
+---
+
+## 10. CI/CD (optional but recommended)
 
 Ready-made workflows live in `github-workflow-templates/` (not
 `.github/workflows/` — see that folder's `README.md` for why, and the copy
@@ -311,7 +353,7 @@ commands to activate them). Once copied in:
 
 ---
 
-## 10. Operating it day to day
+## 11. Operating it day to day
 
 - **Logs**: `docker compose -f docker-compose.prod.yml logs -f app worker`
 - **Redeploy after a config change**: `docker compose -f docker-compose.prod.yml up -d --build`
