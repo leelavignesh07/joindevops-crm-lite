@@ -149,6 +149,12 @@ See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for the full step-by-step AWS guide: RD
 verification, EC2 setup, Docker deployment, nginx + HTTPS, Google OAuth setup, WATI setup, and
 wiring up Tally.so / Webflow / Learnyst / Meta Ads / Pabbly / Zapier.
 
+For the hardened production architecture — RDS with an AWS-managed/rotated master password, app
+secrets in SSM Parameter Store instead of a hand-edited `.env`, a twice-weekly AWS Backup plan on
+top of RDS's own daily backups, and a step-by-step "the EC2 instance died" recovery runbook — see
+**[AWS_SETUP_GUIDE.md](./AWS_SETUP_GUIDE.md)**, or provision that exact architecture in one shot
+with **[terraform/](./terraform)** (`terraform apply`).
+
 ## Extending
 
 - **Outbound webhooks** (Settings > Outbound Webhooks) let you POST any CRM event (including

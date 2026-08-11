@@ -10,6 +10,16 @@ Rough monthly cost at low volume: EC2 `t3.small` (~$15), RDS `db.t3.micro`
 (~$13), SES (~$0.10 per 1,000 emails), Route 53 hosted zone (~$0.50) — call it
 **$25–35/month** before traffic grows.
 
+> **Production setup?** This guide's RDS section below (a manually-set master
+> password, single automated backup schedule) is fine for a quick or dev
+> deployment. For the real production setup — RDS with an AWS-managed/rotated
+> master password, all app secrets in SSM Parameter Store instead of a
+> hand-edited `.env`, a twice-weekly AWS Backup plan on top of RDS's daily
+> backups, and a "the EC2 instance died, here's the exact 5-minute recovery"
+> runbook — use **`AWS_SETUP_GUIDE.md`** instead (or `terraform/` to provision
+> that same architecture in one `terraform apply`). Everything from Google
+> Workspace SSO onward in *this* file still applies either way.
+
 ---
 
 ## 0. Prerequisites

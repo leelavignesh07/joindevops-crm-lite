@@ -1,0 +1,44 @@
+# Copy to terraform.tfvars and fill in. Never commit the real terraform.tfvars
+# (it's gitignored) — it will contain secrets in plaintext on your machine.
+
+aws_region   = "ap-south-1"
+environment  = "prod"
+project_name = "joindevops-crm"
+
+# Restrict this to your own IP, e.g. "203.0.113.9/32" — find it with `curl ifconfig.me`.
+ssh_allowed_cidr = "REPLACE_WITH_YOUR_IP/32"
+
+instance_type      = "t3.small"
+ec2_key_pair_name  = "REPLACE_WITH_AN_EXISTING_EC2_KEY_PAIR_NAME"
+
+app_repo_url = "https://github.com/leelavignesh07/joindevops-crm-lite.git"
+app_repo_ref = "main"
+
+db_instance_class        = "db.t4g.micro"
+db_allocated_storage_gb  = 20
+db_multi_az              = false
+db_backup_retention_days = 7
+db_deletion_protection   = true
+
+backup_schedule_cron   = "cron(0 3 ? * MON,THU *)" # twice weekly: Mon + Thu, 03:00 UTC
+backup_retention_days  = 35
+
+# Generate with: openssl rand -base64 32
+nextauth_secret = "REPLACE_ME"
+
+google_client_id     = "REPLACE_ME.apps.googleusercontent.com"
+google_client_secret = "REPLACE_ME"
+allowed_google_workspace_domain = "joindevops.com"
+
+ses_from_email = "admissions@joindevops.com"
+
+wati_api_endpoint      = "https://live-mt-server.wati.io/REPLACE_WITH_TENANT_ID"
+wati_api_key            = "REPLACE_ME"
+wati_ack_template_name  = "lead_acknowledgement"
+
+brand_name = "JoinDevOps"
+
+# Leave both blank to reach the app via its Elastic IP for now; fill in once
+# you've picked a domain and it's on Route 53.
+app_domain      = ""
+route53_zone_id = ""
