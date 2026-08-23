@@ -125,6 +125,22 @@ npm run worker
 Sign in at `http://localhost:3000/login` with a Google account on your Workspace domain
 (`ALLOWED_GOOGLE_WORKSPACE_DOMAIN` in `.env`). The first account to sign in becomes ADMIN.
 
+### 21st.dev MCP server (Claude Code)
+
+`.mcp.json` registers the [21st.dev](https://21st.dev) MCP server for anyone using Claude Code in
+this repo. It reads your key from the environment rather than storing it in the file, so export it
+in your shell before starting Claude Code (do **not** put it in `.env` — that file is only loaded by
+the app, not by Claude Code):
+
+```bash
+export API_KEY_21ST="your-21st-dev-api-key"   # grab one from https://21st.dev
+claude                                        # approve the project MCP server when prompted
+```
+
+Check it came up with `claude mcp list` — it should report `21st: ... - ✓ Connected`. A
+`Missing environment variables: API_KEY_21ST` warning means the export above is missing from the
+shell that launched Claude Code.
+
 ### Testing inbound webhooks locally
 
 Generate webhook URLs + tokens from **Settings > Inbound Webhooks** in the admin panel (sign in
