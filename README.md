@@ -169,3 +169,23 @@ rest of the targets: `plan`, `status`, `redeploy`, `destroy`).
   `SOURCE_SLUGS`, and a value in the `LeadSourceType` enum in `prisma/schema.prisma`.
 - **New communication channels** (e.g. SMS): add a `CommunicationChannel` enum value, a `send*`
   function in `src/lib/`, and a case in `src/workers/communicationWorker.ts`.
+
+## AWS Monitoring Agent (`aws-agent/`)
+
+A separate, self-contained project in this repository: a **read-only** AI agent
+that reports on the AWS account this CRM runs in — resource counts, health
+checks, cost, logs and security posture — collected through the AWS CLI.
+
+It can read everything it is permitted to see and cannot create, modify or delete
+anything; that boundary is enforced by a policy engine, by IAM, and by an
+approval gate, and every call it makes is audited.
+
+```bash
+cd aws-agent
+make quickstart      # set up, verify the machine, run the agent once
+make report          # full status report
+make policy          # exactly what the agent may and may not do
+```
+
+See [`aws-agent/README.md`](aws-agent/README.md) for the eight-stage build-up,
+the security model and deployment instructions.

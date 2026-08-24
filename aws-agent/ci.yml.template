@@ -1,0 +1,80 @@
+# CI for the AWS monitoring agent.
+#
+# This file lives here rather than under .github/workflows/ because pushing to
+# that path needs a token with the `workflow` OAuth scope (same reason as
+# ../github-workflow-templates/). To enable it:
+#
+#   mkdir -p ../.github/workflows
+#   cp ci.yml.template ../.github/workflows/aws-agent-ci.yml
+#   git add ../.github/workflows && git commit && git push
+#
+# It needs no secrets: the test suite stubs the AWS CLI and never calls Claude.
+
+name: aws-agent-ci
+
+on:
+  push:
+    paths:
+      - "aws-agent/**"
+      - ".github/workflows/aws-agent-ci.yml"
+  pull_request:
+    paths:
+      - "aws-agent/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: aws-agent
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt -r requirements-server.txt
+
+      - name: Lint
+        run: ruff check agent tests
+
+      - name: Format check
+        run: ruff format --check agent tests
+
+      - name: Tests
+        run: pytest tests -q
+
+      - name: Prove the write boundary still holds
+        run: pytest tests/test_guard.py -q
+
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: aws-agent/deploy/terraform
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+
+  docker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: aws-agent
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the Lambda image
+        run: docker build -t aws-monitoring-agent:ci .
+      - name: Confirm the AWS CLI is in the image
+        run: docker run --rm --entrypoint aws aws-monitoring-agent:ci --version
